@@ -12,5 +12,8 @@ Posture reminder timer. Installable on Android and iPhone as a PWA.
 - Android (Chrome): open the URL > ⋮ menu > "Install app" (or "Add to Home screen") > Install.
 - iPhone (Safari): open the URL > Share > "Add to Home Screen" > Add.
 
+## Security
+See SECURITY.md. CodeQL, ZAP and Dependabot run in GitHub Actions.
+
 ## Updating
-Edit index.html, bump VERSION in sw.js (e.g. posture-drs-v2), push. Close and reopen the app twice to get the new copy.
+Edit index.html or app.js, bump VERSION in sw.js (e.g. posture-drs-v2), push. Close and reopen the app twice to get the new copy.

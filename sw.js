@@ -1,8 +1,9 @@
 // Bump VERSION whenever you change index.html so phones pick up the new copy.
-const VERSION = "posture-drs-v1";
+const VERSION = "posture-drs-v2";
 const SHELL = [
   "./",
   "./index.html",
+  "./app.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
