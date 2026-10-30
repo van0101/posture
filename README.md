@@ -1,8 +1,17 @@
 # Posture
 
-Posture reminder timer. Installable on Android and iPhone as a PWA.
+Posture reminder timer: set a session and an interval, and it beeps so you remember to sit up.
 
-## Publish with GitHub Pages
+- **Android app:** beeps with the app closed, the phone locked, or music playing.
+  Download `posture.apk` from the [latest release](https://github.com/van0101/posture/releases/latest).
+- **Web app (PWA):** https://van0101.github.io/posture/ beeps while the page is open. Installable on Android and iPhone.
+
+## Install the Android app
+1. On the phone, open the [latest release](https://github.com/van0101/posture/releases/latest) and tap `posture.apk`.
+2. When Chrome asks, allow it to install unknown apps, then tap Install.
+3. Open Posture, tap Start, and allow notifications.
+
+## Publish the web app with GitHub Pages
 1. Create a public repo named `posture` on GitHub.
 2. Push these files to the `main` branch (root of the repo).
 3. Repo > Settings > Pages > Source: "Deploy from a branch" > Branch: `main`, folder `/ (root)` > Save.

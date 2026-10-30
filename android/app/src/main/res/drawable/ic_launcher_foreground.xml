@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher icon: shift lights over a head and upright spine. Content sits in the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#34E07F" android:pathData="M27,30h6v5h-6z" />
+    <path android:fillColor="#34E07F" android:pathData="M35,30h6v5h-6z" />
+    <path android:fillColor="#34E07F" android:pathData="M43,30h6v5h-6z" />
+    <path android:fillColor="#FF3B3B" android:pathData="M51,30h6v5h-6z" />
+    <path android:fillColor="#FF3B3B" android:pathData="M59,30h6v5h-6z" />
+    <path android:fillColor="#4C8DFF" android:pathData="M67,30h6v5h-6z" />
+    <path android:fillColor="#4C8DFF" android:pathData="M75,30h6v5h-6z" />
+    <path android:fillColor="#FFB02E" android:pathData="M54,39a5.5,5.5 0,1 0,0.01 0z" />
+    <path android:fillColor="#34E07F" android:pathData="M46,53h16a2,2 0,0 1,0 4h-16a2,2 0,0 1,0 -4z" />
+    <path android:fillColor="#34E07F" android:pathData="M46.6,59.5h14.8a2,2 0,0 1,0 4h-14.8a2,2 0,0 1,0 -4z" />
+    <path android:fillColor="#34E07F" android:pathData="M47.2,66h13.6a2,2 0,0 1,0 4h-13.6a2,2 0,0 1,0 -4z" />
+    <path android:fillColor="#34E07F" android:pathData="M47.8,72.5h12.4a2,2 0,0 1,0 4h-12.4a2,2 0,0 1,0 -4z" />
+</vector>

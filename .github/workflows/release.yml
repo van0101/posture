@@ -1,5 +1,7 @@
-# When a new version lands on main, tag it (vX.Y.Z) and publish a GitHub Release
-# whose notes are that version's section of CHANGELOG.md.
+# When a new version lands on main:
+#  1. tag it (vX.Y.Z) and publish a GitHub Release with that version's CHANGELOG section,
+#  2. build the signed Android APK and attach it to the release as posture.apk.
+# Re-run it from the Actions tab to attach the APK to a release that doesn't have one yet.
 name: Release
 
 on:
@@ -14,13 +16,14 @@ jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # create tags and releases
+      contents: write # create tags, releases and upload the APK
     env:
       GH_TOKEN: ${{ github.token }}
+      HAS_SIGNING_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # full history and tags
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Read version
@@ -28,30 +31,65 @@ jobs:
         run: |
           v=$(grep -oE 'APP_VERSION = "[0-9]+\.[0-9]+\.[0-9]+"' app.js | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
           echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "tag=v$v" >> "$GITHUB_OUTPUT"
           echo "App version: $v"
 
-      # One-time: tag the two releases made before this workflow existed. Safe to re-run.
-      - name: Backfill earlier releases
-        run: |
-          backfill() {
-            local version=$1 sha=$2
-            if gh release view "v$version" >/dev/null 2>&1; then echo "v$version exists"; return; fi
-            awk -v v="$version" 'index($0, "## [" v "]")==1 {f=1; next} f && /^## \[|^\[/ {exit} f' CHANGELOG.md > notes.md
-            gh release create "v$version" --target "$sha" --title "v$version" --notes-file notes.md
-          }
-          backfill 1.0.0 d42eb213127ebeb6e6c91c4bf0482cbe8d13f798
-          backfill 1.0.1 3669d7a3857970ca3f6f01b56718d6950e6310c1
-        continue-on-error: true
-
-      - name: Tag and publish this release
+      - name: Tag and publish the release
         env:
           VERSION: ${{ steps.v.outputs.version }}
+          TAG: ${{ steps.v.outputs.tag }}
         run: |
-          tag="v$VERSION"
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "$tag already released, nothing to do."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "$TAG already released."
             exit 0
           fi
           awk -v v="$VERSION" 'index($0, "## [" v "]")==1 {f=1; next} f && /^## \[|^\[/ {exit} f' CHANGELOG.md > notes.md
           if [ ! -s notes.md ]; then echo "::error::No CHANGELOG.md section for $VERSION"; exit 1; fi
-          gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --notes-file notes.md
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md
+
+      - name: Check for an APK on the release
+        id: apk
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx posture.apk; then
+            echo "missing=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+            if [ "$HAS_SIGNING_KEY" != "true" ]; then
+              echo "::warning title=No APK attached::Add the ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD secrets, then re-run this workflow."
+            fi
+          fi
+
+      - uses: actions/setup-java@v5
+        if: steps.apk.outputs.missing == 'true' && env.HAS_SIGNING_KEY == 'true'
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v5
+        if: steps.apk.outputs.missing == 'true' && env.HAS_SIGNING_KEY == 'true'
+        with:
+          gradle-version: "8.14.3"
+
+      - name: Build signed APK and attach it
+        if: steps.apk.outputs.missing == 'true' && env.HAS_SIGNING_KEY == 'true'
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          set -o pipefail
+          export ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/posture.jks"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$ANDROID_KEYSTORE_FILE"
+          gradle -p android assembleRelease --console=plain 2>&1 | tee build.log
+          rm -f "$ANDROID_KEYSTORE_FILE"
+          cp android/app/build/outputs/apk/release/app-release.apk posture.apk
+          gh release upload "$TAG" posture.apk --clobber
+
+      - name: Show build errors
+        if: failure()
+        run: |
+          [ -f build.log ] || exit 0
+          msg=$(grep -E "error:|What went wrong|Could not|Exception:|FAILED|> " build.log | grep -v "^> Task" | head -40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::error title=Android build failed::${msg}"

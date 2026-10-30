@@ -92,6 +92,14 @@
   .status { font-size: 13px; color: var(--mute); min-height: 1.45em; }
   .status.err { color: var(--danger); }
 
+  .android {
+    display: flex; flex-direction: column; gap: 2px; text-decoration: none;
+    background: var(--panel); border: 1px solid var(--go); border-radius: 12px; padding: 10px 14px; color: var(--ink);
+  }
+  .android strong { font-family: var(--f-display); font-size: 14px; letter-spacing: .06em; text-transform: uppercase; color: var(--go); }
+  .android span { color: var(--mute); font-size: 13px; }
+  .android:focus-visible { outline: 2px solid var(--go); outline-offset: 2px; }
+
   /* Setup */
   .setup { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
   .setup[disabled] { opacity: .45; }
@@ -109,16 +117,6 @@
   .custom input { width: 78px; }
   .custom input:focus { border-color: var(--amber); outline: none; }
 
-  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .seg label {
-    display: flex; flex-direction: column; gap: 2px; cursor: pointer;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
-  }
-  .seg input { position: absolute; opacity: 0; pointer-events: none; }
-  .seg strong { font-weight: 600; font-size: 14px; }
-  .seg span { color: var(--mute); font-size: 12.5px; line-height: 1.35; }
-  .seg label:has(input:checked) { border-color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber); }
-  .seg label:has(input:focus-visible) { outline: 2px solid var(--amber); outline-offset: 2px; }
 
   .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
   .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
@@ -165,6 +163,11 @@
     <h1>Posture<span>.</span></h1>
     <p>A beep every lap. Sit up when you hear it.</p>
   </header>
+
+  <a class="android" href="https://github.com/van0101/posture/releases/latest/download/posture.apk" rel="noopener noreferrer">
+    <strong>Get the Android app</strong>
+    <span>Beeps with the app closed, the phone locked, or music playing. This web version only beeps while it's open on screen.</span>
+  </a>
 
   <section class="dash" aria-label="Timer">
     <div class="leds" id="leds" aria-hidden="true"></div>
@@ -223,19 +226,6 @@
     </div>
 
     <div class="group">
-      <h2>Sound mode</h2>
-      <div class="seg">
-        <label>
-          <input type="radio" name="mode" id="modeMix" value="mix" checked>
-          <strong>Over music</strong>
-          <span>Beeps on top of Spotify, YouTube or calls audio. Keep this page open.</span>
-        </label>
-        <label>
-          <input type="radio" name="mode" id="modeTrack" value="track">
-          <strong>Screen off, no music</strong>
-          <span>Keeps beeping with the phone locked. Stops if another app starts playing.</span>
-        </label>
-      </div>
       <div class="row">
         <label class="check"><input type="checkbox" id="wake" checked> Keep screen on</label>
         <button type="button" class="ghost" id="test">Test beep</button>
@@ -248,12 +238,12 @@
   </div>
 
   <div class="notes">
-    <p>Over music: the beeps are short sound effects, so your music keeps playing and the beep sounds on top. Leave this page open in its tab; you can dim the screen.</p>
+    <p>Beeps play on top of your music while this page is open and on screen. For beeps in the background, use the Android app.</p>
     <p>Turn media volume up. On iPhone, flip the ring/silent switch off.</p>
   </div>
 
   <footer class="foot">
-    <span id="ver">v1.1.0</span>
+    <span id="ver">v2.0.0</span>
     <a href="https://github.com/van0101/posture/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">Changelog</a>
   </footer>
 </main>
