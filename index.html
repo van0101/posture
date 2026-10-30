@@ -5,7 +5,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Posture DRS</title>
+<title>Posture</title>
 <meta name="description" content="Posture reminder timer with a short double beep every interval.">
 <meta name="theme-color" content="#0c0e11">
 <link rel="manifest" href="manifest.webmanifest">
@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Posture DRS">
+<meta name="apple-mobile-web-app-title" content="Posture">
 <style>
   *, *::before, *::after { box-sizing: border-box; }
   :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
@@ -140,6 +140,18 @@
   .notes { color: var(--mute); font-size: 13px; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 14px; }
   .notes p { margin: 0; }
 
+  .chips[data-key="sound"] .chip, .chips[data-key="pitch"] .chip { font-family: var(--f-body); font-weight: 500; }
+  .chips[data-key="sound"] .chip[aria-pressed="true"], .chips[data-key="pitch"] .chip[aria-pressed="true"] { font-weight: 600; }
+  .hint { color: var(--mute); font-size: 12.5px; }
+  .sub { font-family: var(--f-display); font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); min-width: 44px; }
+
+  .foot {
+    display: flex; justify-content: center; align-items: center; gap: 14px;
+    font-family: var(--f-num); font-size: 12px; color: var(--mute); font-variant-numeric: tabular-nums;
+  }
+  .foot a { color: var(--mute); text-decoration: underline; text-underline-offset: 3px; }
+  .foot a:hover, .foot a:focus-visible { color: var(--ink); }
+
   @media (prefers-reduced-motion: reduce) {
     .led, .cue { transition: none; }
     .cue.flash { box-shadow: none; }
@@ -150,7 +162,7 @@
 <body>
 <main class="wrap">
   <header>
-    <h1>Posture <span>DRS</span></h1>
+    <h1>Posture<span>.</span></h1>
     <p>A beep every lap. Sit up when you hear it.</p>
   </header>
 
@@ -196,6 +208,21 @@
     </div>
 
     <div class="group">
+      <h2>Beep sound</h2>
+      <div class="chips" data-key="sound">
+        <button type="button" class="chip" data-val="pips">Short pips</button>
+        <button type="button" class="chip" data-val="double" aria-pressed="true">Double blip</button>
+        <button type="button" class="chip" data-val="long">Two long</button>
+      </div>
+      <div class="chips" data-key="pitch">
+        <span class="sub">Pitch</span>
+        <button type="button" class="chip" data-val="bright" aria-pressed="true">Bright</button>
+        <button type="button" class="chip" data-val="bass">Bass note</button>
+        <span class="hint">Tap to hear it</span>
+      </div>
+    </div>
+
+    <div class="group">
       <h2>Sound mode</h2>
       <div class="seg">
         <label>
@@ -224,6 +251,11 @@
     <p>Over music: the beeps are short sound effects, so your music keeps playing and the beep sounds on top. Leave this page open in its tab; you can dim the screen.</p>
     <p>Turn media volume up. On iPhone, flip the ring/silent switch off.</p>
   </div>
+
+  <footer class="foot">
+    <span id="ver">v1.1.0</span>
+    <a href="https://github.com/van0101/posture/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">Changelog</a>
+  </footer>
 </main>
 
 <script src="app.js" defer></script>

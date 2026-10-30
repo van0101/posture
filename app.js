@@ -1,17 +1,62 @@
+// Single source of truth for the app version (semver). Keep in sync with
+// VERSION in sw.js and the top entry of CHANGELOG.md; CI checks this.
+const APP_VERSION = "1.1.0";
+
 (() => {
   const $ = (id) => document.getElementById(id);
   const state = {
-    total: 60, interval: 5, mode: "mix",
+    total: 60, interval: 5, mode: "mix", sound: "double", pitch: "bright",
     running: false, startTs: 0, stopAt: 0, beepsTotal: 0, lastShown: -1,
-    audio: null, url: null, ctx: null, master: null, nodes: [], ctxOffset: 0,
+    audio: null, url: null, ctx: null, master: null, nodes: [], ctxOffset: 0, bufCache: {},
     wakeLock: null, tick: null, stopTimer: null, stoppingByUs: false,
   };
 
-  // ---------- Sound: the "DRS enabled" double blip ----------
-  const BEEP = { f: 2000, len: 0.09, gap: 0.06 };
+  // ---------- Sounds ----------
+  // Each sound is a list of tones [start s, length s]. A voice decides the timbre:
+  // "bright" is a high, sharp beep; "bass" is a low, rounder note.
+  const SOUNDS = {
+    pips:   { label: "Short pips",  bright: { f: 2400, tones: [[0, .05], [.11, .05], [.22, .05]] },
+                                    bass:   { f: 220,  tones: [[0, .08], [.14, .08], [.28, .08]] } },
+    double: { label: "Double blip", bright: { f: 2000, tones: [[0, .09], [.15, .09]] },
+                                    bass:   { f: 196,  tones: [[0, .12], [.2, .12]] } },
+    long:   { label: "Two long",    bright: { f: 1000, tones: [[0, .4], [.6, .4]], partials: [[1, 1], [2, .15]] },
+                                    bass:   { f: 165,  tones: [[0, .45], [.65, .45]] } },
+    finish: {                       bright: { f: 1400, tones: [[0, .09], [.15, .09], [.3, .2]] },
+                                    bass:   { f: 147,  tones: [[0, .12], [.2, .12], [.4, .3]] } },
+  };
+  const VOICES = {
+    // triangle-ish wave plus a fifth on top: the original beep
+    bright: { partials: [[1, 1], [3, -1 / 9], [5, 1 / 25], [1.5, .3]], attack: .005, release: .01, decay: 0 },
+    // fundamental + harmonics so phone speakers (which can't play deep lows) still carry the pitch
+    bass:   { partials: [[1, 1], [2, .7], [3, .45], [4, .25], [5, .12]], attack: .012, release: .05, decay: 2.5 },
+  };
 
-  // One interval of audio: beep at t=0, then silence. Looped, it beeps every interval.
-  function makeClipURL(seconds) {
+  // Renders a sound to raw samples. Partials above the sample rate's limit are skipped,
+  // so the same sound works for Web Audio (44.1/48 kHz) and the 8 kHz looping track.
+  function synth(soundKey, pitch, sr) {
+    const spec = SOUNDS[soundKey][pitch], voice = VOICES[pitch];
+    const partials = (pitch === "bright" && spec.partials) || voice.partials;
+    const end = Math.max(...spec.tones.map(([s, d]) => s + d)) + .02;
+    const out = new Float32Array(Math.ceil(end * sr));
+    for (const [start, dur] of spec.tones) {
+      const s0 = Math.round(start * sr), len = Math.round(dur * sr);
+      const usable = partials.filter(([m]) => spec.f * m < sr * .45);
+      for (let i = 0; i < len && s0 + i < out.length; i++) {
+        const t = i / sr;
+        const env = Math.min(1, t / voice.attack, (dur - t) / voice.release) * Math.exp(-voice.decay * t);
+        let v = 0;
+        for (const [m, a] of usable) v += a * Math.sin(2 * Math.PI * spec.f * m * t);
+        out[s0 + i] += env * v;
+      }
+    }
+    let peak = 0;
+    for (const x of out) peak = Math.max(peak, Math.abs(x));
+    if (peak > 0) for (let i = 0; i < out.length; i++) out[i] *= .85 / peak;
+    return out;
+  }
+
+  // One interval of 8-bit audio: the sound at t=0, then silence. Looped, it beeps every interval.
+  function makeClipURL(seconds, soundKey, pitch) {
     const sr = 8000, n = Math.round(seconds * sr);
     const buf = new Uint8Array(44 + n);
     const dv = new DataView(buf.buffer);
@@ -21,56 +66,44 @@
     dv.setUint32(24, sr, true); dv.setUint32(28, sr, true); dv.setUint16(32, 1, true); dv.setUint16(34, 8, true);
     str(36, "data"); dv.setUint32(40, n, true);
     buf.fill(128, 44);
-    const env = 0.005;
-    [0, BEEP.len + BEEP.gap].forEach((t0) => {
-      const s0 = Math.round(t0 * sr), s1 = Math.round((t0 + BEEP.len) * sr);
-      for (let s = s0; s < s1 && s < n; s++) {
-        const t = (s - s0) / sr;
-        const a = Math.min(1, t / env, (BEEP.len - t) / env);
-        const v = 0.7 * Math.sin(2 * Math.PI * BEEP.f * t) + 0.22 * Math.sin(2 * Math.PI * BEEP.f * 1.5 * t);
-        buf[44 + s] = Math.max(0, Math.min(255, Math.round(128 + 127 * a * v)));
-      }
-    });
+    const beep = synth(soundKey, pitch, sr);
+    for (let i = 0; i < beep.length && i < n; i++) buf[44 + i] = Math.round(128 + 127 * beep[i]);
     return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
-  }
-
-  // Web Audio blip, scheduled on the audio clock. Returns the oscillators so they can be cancelled.
-  function blips(ctx, dest, when, count = 2, freq = BEEP.f) {
-    const made = [];
-    for (let i = 0; i < count; i++) {
-      const t0 = when + i * (BEEP.len + BEEP.gap);
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0, t0);
-      g.gain.linearRampToValueAtTime(0.75, t0 + 0.005);
-      g.gain.setValueAtTime(0.75, t0 + BEEP.len - 0.005);
-      g.gain.linearRampToValueAtTime(0, t0 + BEEP.len);
-      g.connect(dest);
-      [[freq, 1], [freq * 1.5, 0.3]].forEach(([f, amp]) => {
-        const o = ctx.createOscillator(), og = ctx.createGain();
-        o.type = "triangle";
-        o.frequency.value = f; og.gain.value = amp;
-        o.connect(og).connect(g);
-        o.start(t0); o.stop(t0 + BEEP.len + 0.01);
-        made.push(o);
-      });
-    }
-    return made;
   }
 
   function newCtx() {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -10; comp.ratio.value = 4;
-    comp.connect(ctx.destination);
-    return { ctx, master: comp };
+    const master = ctx.createGain();
+    master.gain.value = 1;
+    master.connect(ctx.destination);
+    return { ctx, master, cache: {} };
+  }
+
+  function bufferFor(holder, soundKey, pitch) {
+    const key = soundKey + ":" + pitch;
+    if (!holder.cache[key]) {
+      const data = synth(soundKey, pitch, holder.ctx.sampleRate);
+      const b = holder.ctx.createBuffer(1, data.length, holder.ctx.sampleRate);
+      b.getChannelData(0).set(data);
+      holder.cache[key] = b;
+    }
+    return holder.cache[key];
+  }
+
+  function playAt(holder, when, soundKey, pitch) {
+    const src = holder.ctx.createBufferSource();
+    src.buffer = bufferFor(holder, soundKey, pitch);
+    src.connect(holder.master);
+    src.start(when);
+    return src;
   }
 
   let fx = null;
-  function playFx(count, freq) {
+  function playFx(soundKey = state.sound, pitch = state.pitch) {
     try {
       fx = fx || newCtx();
       if (fx.ctx.state !== "running") fx.ctx.resume();
-      blips(fx.ctx, fx.master, fx.ctx.currentTime + 0.03, count, freq);
+      playAt(fx, fx.ctx.currentTime + .03, soundKey, pitch);
     } catch (e) { /* sound unavailable */ }
   }
 
@@ -90,7 +123,7 @@
     const box = $("leds");
     const count = Math.min(Math.max(total, 1), 20);
     if (box.childElementCount !== count) {
-      box.innerHTML = "";
+      box.replaceChildren();
       for (let i = 0; i < count; i++) {
         const d = document.createElement("div");
         const p = i / count;
@@ -119,18 +152,39 @@
     flash.t = setTimeout(() => { c.classList.remove("flash"); $("cueText").textContent = cueIdle(); }, 1500);
   }
 
+  // ---------- Saved choices (this device only) ----------
+  const store = {
+    get(k) { try { return localStorage.getItem("posture." + k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem("posture." + k, v); } catch (e) {} },
+  };
+
   // ---------- Setup controls ----------
   document.querySelectorAll(".chips").forEach((group) => {
     const key = group.dataset.key;
     const input = group.querySelector("input");
+    const numeric = key === "total" || key === "interval";
+    const select = (b) => group.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", String(c === b)));
+
+    if (!numeric) {
+      const saved = store.get(key);
+      const savedBtn = saved && group.querySelector(`.chip[data-val="${saved}"]`);
+      if (savedBtn) { select(savedBtn); state[key] = saved; }
+    }
+
     group.addEventListener("click", (e) => {
       const b = e.target.closest(".chip"); if (!b) return;
-      group.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", String(c === b)));
-      input.value = "";
-      state[key] = Number(b.dataset.val);
-      idleView();
+      select(b);
+      if (numeric) {
+        input.value = "";
+        state[key] = Number(b.dataset.val);
+        idleView();
+      } else {
+        state[key] = b.dataset.val;
+        store.set(key, b.dataset.val);
+        playFx();
+      }
     });
-    input.addEventListener("input", () => {
+    if (input) input.addEventListener("input", () => {
       const v = Number(input.value);
       if (v > 0) {
         group.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", "false"));
@@ -140,7 +194,7 @@
     });
   });
 
-  $("test").addEventListener("click", () => { playFx(2); flash("now"); });
+  $("test").addEventListener("click", () => { playFx(); flash("now"); });
 
   function validate() {
     const T = state.total, I = state.interval;
@@ -165,25 +219,26 @@
   const elapsed = () => (Date.now() - state.startTs) / 1000;
 
   function scheduleRemaining() {
-    const { ctx, master } = state;
-    if (!ctx) return;
-    state.nodes.forEach((o) => { try { o.stop(0); o.disconnect(); } catch (e) {} });
+    const holder = state.ctx;
+    if (!holder) return;
+    state.nodes.forEach((n) => { try { n.stop(0); n.disconnect(); } catch (e) {} });
     state.nodes = [];
-    const I = state.interval * 60, el = elapsed(), now = ctx.currentTime;
+    const I = state.interval * 60, el = elapsed(), now = holder.ctx.currentTime;
     state.ctxOffset = now - el; // audio-clock time of session start
     for (let k = 0; k <= state.beepsTotal; k++) {
       const at = k * I - el;
       if (at < -0.1) continue;
-      state.nodes.push(...blips(ctx, master, now + Math.max(0.03, at)));
+      state.nodes.push(playAt(holder, now + Math.max(0.03, at), state.sound, state.pitch));
     }
   }
 
   async function startMix() {
-    const { ctx, master } = newCtx();
-    state.ctx = ctx; state.master = master;
+    const holder = newCtx();
+    state.ctx = holder;
+    const ctx = holder.ctx;
     // If the phone suspends or interrupts audio (call, other app), resume and requeue on the wall clock.
     ctx.onstatechange = () => {
-      if (!state.running || state.ctx !== ctx) return;
+      if (!state.running || state.ctx !== holder) return;
       if (ctx.state !== "running" && ctx.state !== "closed") ctx.resume().catch(() => {});
       else if (ctx.state === "running") scheduleRemaining();
     };
@@ -193,15 +248,15 @@
 
   // Audio clock drifted from the wall clock (context was paused)? Requeue.
   function checkMix() {
-    const ctx = state.ctx;
-    if (!ctx) return;
-    if (ctx.state !== "running") { ctx.resume().catch(() => {}); return; }
-    if (Math.abs(ctx.currentTime - (state.ctxOffset + elapsed())) > 1) scheduleRemaining();
+    const holder = state.ctx;
+    if (!holder) return;
+    if (holder.ctx.state !== "running") { holder.ctx.resume().catch(() => {}); return; }
+    if (Math.abs(holder.ctx.currentTime - (state.ctxOffset + elapsed())) > 1) scheduleRemaining();
   }
 
   // ---------- Engine 2: screen off, no music (looping media track) ----------
   function startTrack() {
-    state.url = makeClipURL(state.interval * 60);
+    state.url = makeClipURL(state.interval * 60, state.sound, state.pitch);
     const a = new Audio();
     a.src = state.url; a.loop = true; a.preload = "auto";
     a.addEventListener("timeupdate", update);
@@ -213,7 +268,7 @@
     state.audio = a;
     if ("mediaSession" in navigator) {
       try {
-        navigator.mediaSession.metadata = new MediaMetadata({ title: `Posture check every ${state.interval} min`, artist: "Posture DRS" });
+        navigator.mediaSession.metadata = new MediaMetadata({ title: `Posture check every ${state.interval} min`, artist: "Posture" });
         navigator.mediaSession.setActionHandler("pause", () => stop("Stopped from the lock screen."));
         navigator.mediaSession.setActionHandler("stop", () => stop("Stopped from the lock screen."));
       } catch (e) {}
@@ -231,7 +286,7 @@
       state.audio = null;
     }
     if (state.url) { URL.revokeObjectURL(state.url); state.url = null; }
-    if (state.ctx) { const c = state.ctx; state.ctx = null; c.onstatechange = null; c.close().catch(() => {}); }
+    if (state.ctx) { const c = state.ctx.ctx; state.ctx = null; c.onstatechange = null; c.close().catch(() => {}); }
     state.nodes = [];
     if ("mediaSession" in navigator) { try { navigator.mediaSession.metadata = null; } catch (e) {} }
     state.stoppingByUs = false;
@@ -263,7 +318,7 @@
     state.mode = document.querySelector('input[name="mode"]:checked').value;
     state.beepsTotal = beepsFor(T, I);
     // If the last beep lands exactly on the end, let it play before stopping.
-    state.stopAt = Math.abs(T - state.beepsTotal * I) < 1e-6 ? T + 0.6 : T;
+    state.stopAt = Math.abs(T - state.beepsTotal * I) < 1e-6 ? T + 1.2 : T;
     state.lastShown = 0;
     state.startTs = Date.now();
     state.running = true;
@@ -298,7 +353,7 @@
   function finish() {
     const n = state.beepsTotal;
     stop(`Session done. ${n} posture check${n === 1 ? "" : "s"} completed.`);
-    playFx(3, 1400);
+    playFx("finish", state.pitch);
     try { navigator.vibrate && navigator.vibrate([120, 80, 120]); } catch (e) {}
     flash("done");
     renderLeds(n, n);
@@ -314,6 +369,7 @@
 
   $("go").addEventListener("click", () => (state.running ? stop() : start()));
 
+  $("ver").textContent = "v" + APP_VERSION;
   idleView();
 })();
 

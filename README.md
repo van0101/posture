@@ -1,4 +1,4 @@
-# Posture DRS
+# Posture
 
 Posture reminder timer. Installable on Android and iPhone as a PWA.
 
@@ -15,5 +15,14 @@ Posture reminder timer. Installable on Android and iPhone as a PWA.
 ## Security
 See SECURITY.md. CodeQL, ZAP and Dependabot run in GitHub Actions.
 
+## Versioning
+The app follows [semver](https://semver.org). The current version shows at the bottom of the page.
+See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
+
 ## Updating
-Edit index.html or app.js, bump VERSION in sw.js (e.g. posture-drs-v2), push. Close and reopen the app twice to get the new copy.
+1. Make the change in index.html or app.js.
+2. Bump the version in app.js (`APP_VERSION`), sw.js (`VERSION`) and index.html (`#ver`).
+3. Add an entry at the top of CHANGELOG.md.
+4. Push, then tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+
+CI fails if the versions don't match or weren't bumped. Phones get the new release after the app is closed and reopened (sometimes twice).

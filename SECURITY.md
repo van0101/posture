@@ -1,12 +1,13 @@
 # Security
 
-Posture DRS is a static page: no backend, no login, no data leaves the phone.
+Posture is a static page: no backend, no login, no data leaves the phone.
 
 ## Checks in this repo
 | Check | What it catches | Where to see results |
 |---|---|---|
 | CodeQL (`.github/workflows/codeql.yml`) | Risky code patterns in JS and in the workflows | Security > Code scanning |
 | ZAP baseline (`.github/workflows/zap-baseline.yml`) | Header and config issues on the live site | Actions > ZAP run > Artifacts |
+| Version check (`.github/workflows/version-check.yml`) | Releases that skip the version bump or changelog entry | Actions |
 | Dependabot (`.github/dependabot.yml`) | Outdated GitHub Actions | Pull requests |
 | Secret scanning (GitHub setting) | API keys or tokens committed by mistake | Security > Secret scanning |
 

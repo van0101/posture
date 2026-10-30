@@ -1,5 +1,6 @@
-// Bump VERSION whenever you change index.html so phones pick up the new copy.
-const VERSION = "posture-drs-v2";
+// Cache name carries the app version. Keep in sync with APP_VERSION in app.js
+// and CHANGELOG.md (CI checks it). A new name makes phones download the new release.
+const VERSION = "posture-v1.1.0";
 const SHELL = [
   "./",
   "./index.html",

@@ -1,6 +1,6 @@
 {
-  "name": "Posture DRS",
-  "short_name": "Posture DRS",
+  "name": "Posture",
+  "short_name": "Posture",
   "description": "Posture reminder timer with a short double beep every interval.",
   "start_url": "./",
   "scope": "./",
