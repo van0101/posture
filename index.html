@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Posture DRS</title>
+<meta name="description" content="Posture reminder timer with a short double beep every interval.">
+<meta name="theme-color" content="#0c0e11">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Posture DRS">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  body { margin: 0; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  /* Layout: one column, dash on top (shift lights, readout, sit-up light), setup controls below, start/stop under them. Single dark cockpit look by choice. */
+  :root {
+    color-scheme: dark;
+    --carbon: #0c0e11;
+    --panel: #14181d;
+    --panel-2: #1b2027;
+    --line: #29303a;
+    --ink: #e8ecf1;
+    --mute: #8b95a3;
+    --amber: #ffb02e;
+    --amber-ink: #1a1204;
+    --go: #34e07f;
+    --led-red: #ff3b3b;
+    --led-blue: #4c8dff;
+    --danger: #ff6b5b;
+    --f-display: "Chakra Petch", "Rajdhani", "Segoe UI", system-ui, sans-serif;
+    --f-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+    --f-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  html, body { background: var(--carbon); color: var(--ink); }
+  body { font-family: var(--f-body); font-size: 15px; line-height: 1.45; }
+  .wrap {
+    max-width: 520px; margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 18px 28px;
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { margin: 0; font-family: var(--f-display); font-weight: 700; font-size: 22px; letter-spacing: .08em; text-transform: uppercase; }
+  h1 span { color: var(--go); }
+  header p { margin: 0; color: var(--mute); font-size: 13px; }
+
+  /* Dash */
+  .dash {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
+    padding: 16px; display: flex; flex-direction: column; gap: 16px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+  }
+  .leds { display: flex; gap: 5px; justify-content: center; min-height: 14px; }
+  .led {
+    flex: 1 1 0; max-width: 22px; height: 12px; border-radius: 3px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    transition: background .25s, box-shadow .25s;
+  }
+  .led.on.g { background: var(--go); box-shadow: 0 0 8px var(--go); border-color: transparent; }
+  .led.on.r { background: var(--led-red); box-shadow: 0 0 8px var(--led-red); border-color: transparent; }
+  .led.on.b { background: var(--led-blue); box-shadow: 0 0 8px var(--led-blue); border-color: transparent; }
+
+  .readout { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: stretch; }
+  .label { font-family: var(--f-display); font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
+  .big { font-family: var(--f-num); font-weight: 600; font-size: clamp(44px, 15vw, 64px); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .stats { display: flex; gap: 22px; margin-top: 10px; }
+  .stat .val { font-family: var(--f-num); font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+  .cue {
+    width: 100px; border-radius: 12px; border: 2px solid var(--line); background: var(--panel-2);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center;
+    color: var(--mute); transition: background .15s, color .15s, border-color .15s, box-shadow .15s;
+  }
+  .cue b { font-family: var(--f-display); font-size: 21px; letter-spacing: .08em; line-height: 1; }
+  .cue small { font-family: var(--f-display); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+  .cue.flash { background: var(--go); color: #04140a; border-color: var(--go); box-shadow: 0 0 22px var(--go); }
+
+  .status { font-size: 13px; color: var(--mute); min-height: 1.45em; }
+  .status.err { color: var(--danger); }
+
+  /* Setup */
+  .setup { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  .setup[disabled] { opacity: .45; }
+  .group { display: flex; flex-direction: column; gap: 8px; }
+  .group h2 { margin: 0; font-family: var(--f-display); font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .chip, .custom input {
+    font-family: var(--f-num); font-size: 14px; font-variant-numeric: tabular-nums;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 10px; padding: 9px 12px; min-height: 40px;
+  }
+  .chip { cursor: pointer; }
+  .chip[aria-pressed="true"] { background: var(--amber); color: var(--amber-ink); border-color: var(--amber); font-weight: 600; }
+  .custom { display: inline-flex; align-items: center; gap: 6px; color: var(--mute); font-size: 13px; }
+  .custom input { width: 78px; }
+  .custom input:focus { border-color: var(--amber); outline: none; }
+
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .seg label {
+    display: flex; flex-direction: column; gap: 2px; cursor: pointer;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+  }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg strong { font-weight: 600; font-size: 14px; }
+  .seg span { color: var(--mute); font-size: 12.5px; line-height: 1.35; }
+  .seg label:has(input:checked) { border-color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber); }
+  .seg label:has(input:focus-visible) { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+  .check input { width: 18px; height: 18px; accent-color: var(--amber); }
+  .ghost {
+    font-family: var(--f-display); font-weight: 600; font-size: 13px; letter-spacing: .08em; text-transform: uppercase;
+    background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 9px 14px; cursor: pointer;
+  }
+
+  .actions { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .go {
+    font-family: var(--f-display); font-weight: 700; font-size: 18px; letter-spacing: .14em; text-transform: uppercase;
+    border: 0; border-radius: 14px; padding: 16px; cursor: pointer;
+    background: var(--amber); color: var(--amber-ink);
+  }
+  .go.stop { background: var(--panel-2); color: var(--danger); border: 1px solid var(--danger); }
+  button:focus-visible, .chip:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+  .notes { color: var(--mute); font-size: 13px; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 14px; }
+  .notes p { margin: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .led, .cue { transition: none; }
+    .cue.flash { box-shadow: none; }
+  }
+</style>
+
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>Posture <span>DRS</span></h1>
+    <p>A beep every lap. Sit up when you hear it.</p>
+  </header>
+
+  <section class="dash" aria-label="Timer">
+    <div class="leds" id="leds" aria-hidden="true"></div>
+    <div class="readout">
+      <div>
+        <div class="label">Session left</div>
+        <div class="big" id="left">60:00</div>
+        <div class="stats">
+          <div class="stat"><div class="label">Next beep</div><div class="val" id="next">05:00</div></div>
+          <div class="stat"><div class="label">Checks</div><div class="val" id="count">0 / 12</div></div>
+        </div>
+      </div>
+      <div class="cue" id="cue" role="status" aria-live="polite"><b>SIT UP</b><small id="cueText">every 5 min</small></div>
+    </div>
+    <div class="status" id="status">Set your session and tap Start. A double beep plays now and at every interval.</div>
+  </section>
+
+  <fieldset class="setup" id="setup">
+    <div class="group">
+      <h2>Session length</h2>
+      <div class="chips" data-key="total">
+        <button type="button" class="chip" data-val="30">30m</button>
+        <button type="button" class="chip" data-val="45">45m</button>
+        <button type="button" class="chip" data-val="60" aria-pressed="true">1h</button>
+        <button type="button" class="chip" data-val="90">1h 30</button>
+        <button type="button" class="chip" data-val="120">2h</button>
+        <label class="custom">or <input id="totalCustom" type="number" inputmode="numeric" min="1" max="480" placeholder="min"> min</label>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Beep every</h2>
+      <div class="chips" data-key="interval">
+        <button type="button" class="chip" data-val="2">2m</button>
+        <button type="button" class="chip" data-val="5" aria-pressed="true">5m</button>
+        <button type="button" class="chip" data-val="10">10m</button>
+        <button type="button" class="chip" data-val="15">15m</button>
+        <button type="button" class="chip" data-val="20">20m</button>
+        <label class="custom">or <input id="intervalCustom" type="number" inputmode="numeric" min="1" max="60" placeholder="min"> min</label>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Sound mode</h2>
+      <div class="seg">
+        <label>
+          <input type="radio" name="mode" id="modeMix" value="mix" checked>
+          <strong>Over music</strong>
+          <span>Beeps on top of Spotify, YouTube or calls audio. Keep this page open.</span>
+        </label>
+        <label>
+          <input type="radio" name="mode" id="modeTrack" value="track">
+          <strong>Screen off, no music</strong>
+          <span>Keeps beeping with the phone locked. Stops if another app starts playing.</span>
+        </label>
+      </div>
+      <div class="row">
+        <label class="check"><input type="checkbox" id="wake" checked> Keep screen on</label>
+        <button type="button" class="ghost" id="test">Test beep</button>
+      </div>
+    </div>
+  </fieldset>
+
+  <div class="actions">
+    <button type="button" class="go" id="go">Start</button>
+  </div>
+
+  <div class="notes">
+    <p>Over music: the beeps are short sound effects, so your music keeps playing and the beep sounds on top. Leave this page open in its tab; you can dim the screen.</p>
+    <p>Turn media volume up. On iPhone, flip the ring/silent switch off.</p>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const state = {
+    total: 60, interval: 5, mode: "mix",
+    running: false, startTs: 0, stopAt: 0, beepsTotal: 0, lastShown: -1,
+    audio: null, url: null, ctx: null, master: null, nodes: [], ctxOffset: 0,
+    wakeLock: null, tick: null, stopTimer: null, stoppingByUs: false,
+  };
+
+  // ---------- Sound: the "DRS enabled" double blip ----------
+  const BEEP = { f: 2000, len: 0.09, gap: 0.06 };
+
+  // One interval of audio: beep at t=0, then silence. Looped, it beeps every interval.
+  function makeClipURL(seconds) {
+    const sr = 8000, n = Math.round(seconds * sr);
+    const buf = new Uint8Array(44 + n);
+    const dv = new DataView(buf.buffer);
+    const str = (o, s) => { for (let i = 0; i < s.length; i++) buf[o + i] = s.charCodeAt(i); };
+    str(0, "RIFF"); dv.setUint32(4, 36 + n, true); str(8, "WAVE");
+    str(12, "fmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, sr, true); dv.setUint32(28, sr, true); dv.setUint16(32, 1, true); dv.setUint16(34, 8, true);
+    str(36, "data"); dv.setUint32(40, n, true);
+    buf.fill(128, 44);
+    const env = 0.005;
+    [0, BEEP.len + BEEP.gap].forEach((t0) => {
+      const s0 = Math.round(t0 * sr), s1 = Math.round((t0 + BEEP.len) * sr);
+      for (let s = s0; s < s1 && s < n; s++) {
+        const t = (s - s0) / sr;
+        const a = Math.min(1, t / env, (BEEP.len - t) / env);
+        const v = 0.7 * Math.sin(2 * Math.PI * BEEP.f * t) + 0.22 * Math.sin(2 * Math.PI * BEEP.f * 1.5 * t);
+        buf[44 + s] = Math.max(0, Math.min(255, Math.round(128 + 127 * a * v)));
+      }
+    });
+    return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+  }
+
+  // Web Audio blip, scheduled on the audio clock. Returns the oscillators so they can be cancelled.
+  function blips(ctx, dest, when, count = 2, freq = BEEP.f) {
+    const made = [];
+    for (let i = 0; i < count; i++) {
+      const t0 = when + i * (BEEP.len + BEEP.gap);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(0.75, t0 + 0.005);
+      g.gain.setValueAtTime(0.75, t0 + BEEP.len - 0.005);
+      g.gain.linearRampToValueAtTime(0, t0 + BEEP.len);
+      g.connect(dest);
+      [[freq, 1], [freq * 1.5, 0.3]].forEach(([f, amp]) => {
+        const o = ctx.createOscillator(), og = ctx.createGain();
+        o.type = "triangle";
+        o.frequency.value = f; og.gain.value = amp;
+        o.connect(og).connect(g);
+        o.start(t0); o.stop(t0 + BEEP.len + 0.01);
+        made.push(o);
+      });
+    }
+    return made;
+  }
+
+  function newCtx() {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -10; comp.ratio.value = 4;
+    comp.connect(ctx.destination);
+    return { ctx, master: comp };
+  }
+
+  let fx = null;
+  function playFx(count, freq) {
+    try {
+      fx = fx || newCtx();
+      if (fx.ctx.state !== "running") fx.ctx.resume();
+      blips(fx.ctx, fx.master, fx.ctx.currentTime + 0.03, count, freq);
+    } catch (e) { /* sound unavailable */ }
+  }
+
+  // ---------- UI helpers ----------
+  const fmt = (sec) => {
+    sec = Math.max(0, Math.ceil(sec));
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    const mm = String(m).padStart(2, "0"), ss = String(s).padStart(2, "0");
+    return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+  };
+  const beepsFor = (T, I) => Math.floor(T / I + 1e-9);
+  const cueIdle = () => `every ${state.interval} min`;
+
+  function setStatus(msg, err = false) { const el = $("status"); el.textContent = msg; el.classList.toggle("err", err); }
+
+  function renderLeds(done, total) {
+    const box = $("leds");
+    const count = Math.min(Math.max(total, 1), 20);
+    if (box.childElementCount !== count) {
+      box.innerHTML = "";
+      for (let i = 0; i < count; i++) {
+        const d = document.createElement("div");
+        const p = i / count;
+        d.className = "led " + (p < 0.45 ? "g" : p < 0.8 ? "r" : "b");
+        box.appendChild(d);
+      }
+    }
+    const lit = total ? Math.floor((done / total) * count) : 0;
+    [...box.children].forEach((d, i) => d.classList.toggle("on", i < lit));
+  }
+
+  function idleView() {
+    const T = state.total * 60, I = state.interval * 60;
+    $("left").textContent = fmt(T);
+    $("next").textContent = fmt(Math.min(I, T));
+    $("count").textContent = `0 / ${beepsFor(T, I)}`;
+    $("cueText").textContent = cueIdle();
+    renderLeds(0, beepsFor(T, I));
+  }
+
+  function flash(text) {
+    const c = $("cue");
+    $("cueText").textContent = text;
+    c.classList.add("flash");
+    clearTimeout(flash.t);
+    flash.t = setTimeout(() => { c.classList.remove("flash"); $("cueText").textContent = cueIdle(); }, 1500);
+  }
+
+  // ---------- Setup controls ----------
+  document.querySelectorAll(".chips").forEach((group) => {
+    const key = group.dataset.key;
+    const input = group.querySelector("input");
+    group.addEventListener("click", (e) => {
+      const b = e.target.closest(".chip"); if (!b) return;
+      group.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", String(c === b)));
+      input.value = "";
+      state[key] = Number(b.dataset.val);
+      idleView();
+    });
+    input.addEventListener("input", () => {
+      const v = Number(input.value);
+      if (v > 0) {
+        group.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", "false"));
+        state[key] = v;
+        idleView();
+      }
+    });
+  });
+
+  $("test").addEventListener("click", () => { playFx(2); flash("now"); });
+
+  function validate() {
+    const T = state.total, I = state.interval;
+    if (!(T >= 1 && T <= 480)) return "Session length must be between 1 and 480 minutes.";
+    if (!(I >= 1 && I <= 60)) return "Beep interval must be between 1 and 60 minutes.";
+    if (I > T) return "Beep interval can't be longer than the session.";
+    return "";
+  }
+
+  // ---------- Wake lock ----------
+  async function requestWake() {
+    if (!$("wake").checked || !state.running) return;
+    try { state.wakeLock = await navigator.wakeLock.request("screen"); } catch (e) { /* not allowed here */ }
+  }
+  function releaseWake() { try { state.wakeLock && state.wakeLock.release(); } catch (e) {} state.wakeLock = null; }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") { requestWake(); update(); }
+  });
+  $("wake").addEventListener("change", () => ($("wake").checked ? requestWake() : releaseWake()));
+
+  // ---------- Engine 1: over music (Web Audio, all beeps queued on the audio clock) ----------
+  const elapsed = () => (Date.now() - state.startTs) / 1000;
+
+  function scheduleRemaining() {
+    const { ctx, master } = state;
+    if (!ctx) return;
+    state.nodes.forEach((o) => { try { o.stop(0); o.disconnect(); } catch (e) {} });
+    state.nodes = [];
+    const I = state.interval * 60, el = elapsed(), now = ctx.currentTime;
+    state.ctxOffset = now - el; // audio-clock time of session start
+    for (let k = 0; k <= state.beepsTotal; k++) {
+      const at = k * I - el;
+      if (at < -0.1) continue;
+      state.nodes.push(...blips(ctx, master, now + Math.max(0.03, at)));
+    }
+  }
+
+  async function startMix() {
+    const { ctx, master } = newCtx();
+    state.ctx = ctx; state.master = master;
+    // If the phone suspends or interrupts audio (call, other app), resume and requeue on the wall clock.
+    ctx.onstatechange = () => {
+      if (!state.running || state.ctx !== ctx) return;
+      if (ctx.state !== "running" && ctx.state !== "closed") ctx.resume().catch(() => {});
+      else if (ctx.state === "running") scheduleRemaining();
+    };
+    await ctx.resume();
+    scheduleRemaining();
+  }
+
+  // Audio clock drifted from the wall clock (context was paused)? Requeue.
+  function checkMix() {
+    const ctx = state.ctx;
+    if (!ctx) return;
+    if (ctx.state !== "running") { ctx.resume().catch(() => {}); return; }
+    if (Math.abs(ctx.currentTime - (state.ctxOffset + elapsed())) > 1) scheduleRemaining();
+  }
+
+  // ---------- Engine 2: screen off, no music (looping media track) ----------
+  function startTrack() {
+    state.url = makeClipURL(state.interval * 60);
+    const a = new Audio();
+    a.src = state.url; a.loop = true; a.preload = "auto";
+    a.addEventListener("timeupdate", update);
+    a.addEventListener("pause", () => {
+      if (state.running && !state.stoppingByUs) {
+        setStatus("Another app took over the speaker, so beeps paused. Stop, pick Over music, and start again.", true);
+      }
+    });
+    state.audio = a;
+    if ("mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({ title: `Posture check every ${state.interval} min`, artist: "Posture DRS" });
+        navigator.mediaSession.setActionHandler("pause", () => stop("Stopped from the lock screen."));
+        navigator.mediaSession.setActionHandler("stop", () => stop("Stopped from the lock screen."));
+      } catch (e) {}
+    }
+    return a.play();
+  }
+
+  function stopEngines() {
+    state.stoppingByUs = true;
+    if (state.audio) {
+      state.audio.removeEventListener("timeupdate", update);
+      state.audio.pause();
+      state.audio.removeAttribute("src");
+      state.audio.load();
+      state.audio = null;
+    }
+    if (state.url) { URL.revokeObjectURL(state.url); state.url = null; }
+    if (state.ctx) { const c = state.ctx; state.ctx = null; c.onstatechange = null; c.close().catch(() => {}); }
+    state.nodes = [];
+    if ("mediaSession" in navigator) { try { navigator.mediaSession.metadata = null; } catch (e) {} }
+    state.stoppingByUs = false;
+  }
+
+  // ---------- Run loop ----------
+  function update() {
+    if (!state.running) return;
+    const T = state.total * 60, I = state.interval * 60;
+    const el = elapsed();
+    if (el >= state.stopAt) { finish(); return; }
+    if (state.mode === "mix") checkMix();
+    const done = Math.min(Math.floor(el / I + 1e-9), state.beepsTotal);
+    const nextAt = (done + 1) * I;
+    $("left").textContent = fmt(T - el);
+    $("next").textContent = nextAt <= T + 1e-9 ? fmt(nextAt - el) : "—";
+    $("count").textContent = `${done} / ${state.beepsTotal}`;
+    renderLeds(done, state.beepsTotal);
+    if (done > state.lastShown) {
+      if (document.visibilityState === "visible" && el - done * I < 3) flash("now");
+      state.lastShown = done;
+    }
+  }
+
+  async function start() {
+    const err = validate();
+    if (err) { setStatus(err, true); return; }
+    const T = state.total * 60, I = state.interval * 60;
+    state.mode = document.querySelector('input[name="mode"]:checked').value;
+    state.beepsTotal = beepsFor(T, I);
+    // If the last beep lands exactly on the end, let it play before stopping.
+    state.stopAt = Math.abs(T - state.beepsTotal * I) < 1e-6 ? T + 0.6 : T;
+    state.lastShown = 0;
+    state.startTs = Date.now();
+    state.running = true;
+    setRunningUI(true);
+
+    try {
+      await (state.mode === "track" ? startTrack() : startMix());
+    } catch (e) {
+      stop("The browser blocked sound. Tap Start again, and check that media volume is up.", true);
+      return;
+    }
+    flash("now");
+    setStatus(state.mode === "track"
+      ? `Running. Beeping every ${state.interval} min for ${state.total} min. You can lock the phone.`
+      : `Running. Beeping every ${state.interval} min on top of your music. Keep this page open.`);
+    requestWake();
+    state.tick = setInterval(update, 250);
+    clearTimeout(state.stopTimer);
+    state.stopTimer = setTimeout(update, state.stopAt * 1000 + 50);
+    update();
+  }
+
+  function stop(msg = "Stopped.", isErr = false) {
+    state.running = false;
+    clearInterval(state.tick); clearTimeout(state.stopTimer);
+    stopEngines(); releaseWake();
+    setRunningUI(false);
+    setStatus(msg, isErr);
+    idleView();
+  }
+
+  function finish() {
+    const n = state.beepsTotal;
+    stop(`Session done. ${n} posture check${n === 1 ? "" : "s"} completed.`);
+    playFx(3, 1400);
+    try { navigator.vibrate && navigator.vibrate([120, 80, 120]); } catch (e) {}
+    flash("done");
+    renderLeds(n, n);
+    $("count").textContent = `${n} / ${n}`;
+  }
+
+  function setRunningUI(on) {
+    $("setup").disabled = on;
+    const go = $("go");
+    go.textContent = on ? "Stop" : "Start";
+    go.classList.toggle("stop", on);
+  }
+
+  $("go").addEventListener("click", () => (state.running ? stop() : start()));
+
+  idleView();
+})();
+</script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  }
+</script>
+</body>
+</html>
