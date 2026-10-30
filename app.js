@@ -1,14 +1,14 @@
 // Single source of truth for the app version (semver). Keep in sync with
 // VERSION in sw.js and the top entry of CHANGELOG.md; CI checks this.
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "2.0.0";
 
 (() => {
   const $ = (id) => document.getElementById(id);
   const state = {
-    total: 60, interval: 5, mode: "mix", sound: "double", pitch: "bright",
+    total: 60, interval: 5, sound: "double", pitch: "bright",
     running: false, startTs: 0, stopAt: 0, beepsTotal: 0, lastShown: -1,
-    audio: null, url: null, ctx: null, master: null, nodes: [], ctxOffset: 0, bufCache: {},
-    wakeLock: null, tick: null, stopTimer: null, stoppingByUs: false,
+    ctx: null, master: null, nodes: [], ctxOffset: 0, bufCache: {},
+    wakeLock: null, tick: null, stopTimer: null,
   };
 
   // ---------- Sounds ----------
@@ -31,8 +31,8 @@ const APP_VERSION = "1.1.0";
     bass:   { partials: [[1, 1], [2, .7], [3, .45], [4, .25], [5, .12]], attack: .012, release: .05, decay: 2.5 },
   };
 
-  // Renders a sound to raw samples. Partials above the sample rate's limit are skipped,
-  // so the same sound works for Web Audio (44.1/48 kHz) and the 8 kHz looping track.
+  // Renders a sound to raw samples. Partials above the sample rate's limit are skipped.
+  // The Android app (Sounds.java) uses the same definitions.
   function synth(soundKey, pitch, sr) {
     const spec = SOUNDS[soundKey][pitch], voice = VOICES[pitch];
     const partials = (pitch === "bright" && spec.partials) || voice.partials;
@@ -53,22 +53,6 @@ const APP_VERSION = "1.1.0";
     for (const x of out) peak = Math.max(peak, Math.abs(x));
     if (peak > 0) for (let i = 0; i < out.length; i++) out[i] *= .85 / peak;
     return out;
-  }
-
-  // One interval of 8-bit audio: the sound at t=0, then silence. Looped, it beeps every interval.
-  function makeClipURL(seconds, soundKey, pitch) {
-    const sr = 8000, n = Math.round(seconds * sr);
-    const buf = new Uint8Array(44 + n);
-    const dv = new DataView(buf.buffer);
-    const str = (o, s) => { for (let i = 0; i < s.length; i++) buf[o + i] = s.charCodeAt(i); };
-    str(0, "RIFF"); dv.setUint32(4, 36 + n, true); str(8, "WAVE");
-    str(12, "fmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
-    dv.setUint32(24, sr, true); dv.setUint32(28, sr, true); dv.setUint16(32, 1, true); dv.setUint16(34, 8, true);
-    str(36, "data"); dv.setUint32(40, n, true);
-    buf.fill(128, 44);
-    const beep = synth(soundKey, pitch, sr);
-    for (let i = 0; i < beep.length && i < n; i++) buf[44 + i] = Math.round(128 + 127 * beep[i]);
-    return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
   }
 
   function newCtx() {
@@ -215,7 +199,7 @@ const APP_VERSION = "1.1.0";
   });
   $("wake").addEventListener("change", () => ($("wake").checked ? requestWake() : releaseWake()));
 
-  // ---------- Engine 1: over music (Web Audio, all beeps queued on the audio clock) ----------
+  // ---------- Sound engine: Web Audio, all beeps queued on the audio clock ----------
   const elapsed = () => (Date.now() - state.startTs) / 1000;
 
   function scheduleRemaining() {
@@ -254,42 +238,9 @@ const APP_VERSION = "1.1.0";
     if (Math.abs(holder.ctx.currentTime - (state.ctxOffset + elapsed())) > 1) scheduleRemaining();
   }
 
-  // ---------- Engine 2: screen off, no music (looping media track) ----------
-  function startTrack() {
-    state.url = makeClipURL(state.interval * 60, state.sound, state.pitch);
-    const a = new Audio();
-    a.src = state.url; a.loop = true; a.preload = "auto";
-    a.addEventListener("timeupdate", update);
-    a.addEventListener("pause", () => {
-      if (state.running && !state.stoppingByUs) {
-        setStatus("Another app took over the speaker, so beeps paused. Stop, pick Over music, and start again.", true);
-      }
-    });
-    state.audio = a;
-    if ("mediaSession" in navigator) {
-      try {
-        navigator.mediaSession.metadata = new MediaMetadata({ title: `Posture check every ${state.interval} min`, artist: "Posture" });
-        navigator.mediaSession.setActionHandler("pause", () => stop("Stopped from the lock screen."));
-        navigator.mediaSession.setActionHandler("stop", () => stop("Stopped from the lock screen."));
-      } catch (e) {}
-    }
-    return a.play();
-  }
-
   function stopEngines() {
-    state.stoppingByUs = true;
-    if (state.audio) {
-      state.audio.removeEventListener("timeupdate", update);
-      state.audio.pause();
-      state.audio.removeAttribute("src");
-      state.audio.load();
-      state.audio = null;
-    }
-    if (state.url) { URL.revokeObjectURL(state.url); state.url = null; }
     if (state.ctx) { const c = state.ctx.ctx; state.ctx = null; c.onstatechange = null; c.close().catch(() => {}); }
     state.nodes = [];
-    if ("mediaSession" in navigator) { try { navigator.mediaSession.metadata = null; } catch (e) {} }
-    state.stoppingByUs = false;
   }
 
   // ---------- Run loop ----------
@@ -298,7 +249,7 @@ const APP_VERSION = "1.1.0";
     const T = state.total * 60, I = state.interval * 60;
     const el = elapsed();
     if (el >= state.stopAt) { finish(); return; }
-    if (state.mode === "mix") checkMix();
+    checkMix();
     const done = Math.min(Math.floor(el / I + 1e-9), state.beepsTotal);
     const nextAt = (done + 1) * I;
     $("left").textContent = fmt(T - el);
@@ -315,7 +266,6 @@ const APP_VERSION = "1.1.0";
     const err = validate();
     if (err) { setStatus(err, true); return; }
     const T = state.total * 60, I = state.interval * 60;
-    state.mode = document.querySelector('input[name="mode"]:checked').value;
     state.beepsTotal = beepsFor(T, I);
     // If the last beep lands exactly on the end, let it play before stopping.
     state.stopAt = Math.abs(T - state.beepsTotal * I) < 1e-6 ? T + 1.2 : T;
@@ -325,15 +275,13 @@ const APP_VERSION = "1.1.0";
     setRunningUI(true);
 
     try {
-      await (state.mode === "track" ? startTrack() : startMix());
+      await startMix();
     } catch (e) {
       stop("The browser blocked sound. Tap Start again, and check that media volume is up.", true);
       return;
     }
     flash("now");
-    setStatus(state.mode === "track"
-      ? `Running. Beeping every ${state.interval} min for ${state.total} min. You can lock the phone.`
-      : `Running. Beeping every ${state.interval} min on top of your music. Keep this page open.`);
+    setStatus(`Running. Beeping every ${state.interval} min on top of your music. Keep this page open.`);
     requestWake();
     state.tick = setInterval(update, 250);
     clearTimeout(state.stopTimer);

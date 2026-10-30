@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification icon: head over an upright spine -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M12,2.5a2.75,2.75 0,1 0,0.01 0z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M8.5,9.5h7a1,1 0,0 1,0 2h-7a1,1 0,0 1,0 -2z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M8.8,13h6.4a1,1 0,0 1,0 2h-6.4a1,1 0,0 1,0 -2z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M9.1,16.5h5.8a1,1 0,0 1,0 2h-5.8a1,1 0,0 1,0 -2z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M9.4,20h5.2a1,1 0,0 1,0 2h-5.2a1,1 0,0 1,0 -2z" />
+</vector>

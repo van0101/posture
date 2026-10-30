@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="carbon">#0C0E11</color>
+    <color name="panel">#14181D</color>
+    <color name="panel2">#1B2027</color>
+    <color name="line">#29303A</color>
+    <color name="ink">#E8ECF1</color>
+    <color name="mute">#8B95A3</color>
+    <color name="amber">#FFB02E</color>
+    <color name="amber_ink">#1A1204</color>
+    <color name="go">#34E07F</color>
+    <color name="go_ink">#04140A</color>
+    <color name="led_red">#FF3B3B</color>
+    <color name="led_blue">#4C8DFF</color>
+    <color name="danger">#FF6B5B</color>
+</resources>

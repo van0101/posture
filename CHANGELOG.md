@@ -11,6 +11,21 @@ and the app uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-30
+
+### Added
+- Android app, written in Java. Each beep is scheduled as a system alarm, so it sounds with the app closed, the phone locked, or music playing.
+- Android: beeps play on the alarm channel (alarm volume, speaker, works in silent mode). Music dips for the beep and comes back.
+- Android: notification with a countdown to the next beep and a Stop button.
+- Android: same sounds, pitches, session lengths and intervals as the web app, plus an "Allow in background" shortcut for phones that close background apps.
+- Web: link to download the Android app.
+- Release workflow builds the signed APK and attaches it to each GitHub Release as `posture.apk`.
+- CodeQL now also scans the Android Java code.
+
+### Removed
+- Web: the "Screen off, no music" sound mode. The web app now has one mode that beeps over music while the page is open. Use the Android app for background beeps.
+- One-time tag backfill step from the release workflow.
+
 ## [1.1.0] - 2026-10-30
 
 ### Added
@@ -41,7 +56,8 @@ and the app uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
 - "Over music" mode (beeps over other audio) and "Screen off" mode (looping track that keeps going with the phone locked).
 - Installable app (PWA) with offline support and home-screen icons.
 
-[Unreleased]: https://github.com/van0101/posture/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/van0101/posture/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/van0101/posture/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/van0101/posture/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/van0101/posture/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/van0101/posture/releases/tag/v1.0.0
