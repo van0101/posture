@@ -1,0 +1,57 @@
+# When a new version lands on main, tag it (vX.Y.Z) and publish a GitHub Release
+# whose notes are that version's section of CHANGELOG.md.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create tags and releases
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history and tags
+          persist-credentials: false
+
+      - name: Read version
+        id: v
+        run: |
+          v=$(grep -oE 'APP_VERSION = "[0-9]+\.[0-9]+\.[0-9]+"' app.js | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "App version: $v"
+
+      # One-time: tag the two releases made before this workflow existed. Safe to re-run.
+      - name: Backfill earlier releases
+        run: |
+          backfill() {
+            local version=$1 sha=$2
+            if gh release view "v$version" >/dev/null 2>&1; then echo "v$version exists"; return; fi
+            awk -v v="$version" 'index($0, "## [" v "]")==1 {f=1; next} f && /^## \[|^\[/ {exit} f' CHANGELOG.md > notes.md
+            gh release create "v$version" --target "$sha" --title "v$version" --notes-file notes.md
+          }
+          backfill 1.0.0 d42eb213127ebeb6e6c91c4bf0482cbe8d13f798
+          backfill 1.0.1 3669d7a3857970ca3f6f01b56718d6950e6310c1
+        continue-on-error: true
+
+      - name: Tag and publish this release
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          tag="v$VERSION"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "$tag already released, nothing to do."
+            exit 0
+          fi
+          awk -v v="$VERSION" 'index($0, "## [" v "]")==1 {f=1; next} f && /^## \[|^\[/ {exit} f' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then echo "::error::No CHANGELOG.md section for $VERSION"; exit 1; fi
+          gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --notes-file notes.md

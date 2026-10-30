@@ -23,6 +23,6 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 1. Make the change in index.html or app.js.
 2. Bump the version in app.js (`APP_VERSION`), sw.js (`VERSION`) and index.html (`#ver`).
 3. Add an entry at the top of CHANGELOG.md.
-4. Push, then tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+4. Push. GitHub Actions tags the release and publishes it under Releases.
 
 CI fails if the versions don't match or weren't bumped. Phones get the new release after the app is closed and reopened (sometimes twice).

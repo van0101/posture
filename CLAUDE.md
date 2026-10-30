@@ -10,7 +10,7 @@ from `main` at https://van0101.github.io/posture/.
    the `#ver` footer text in index.html, and a new top entry in CHANGELOG.md
    (Keep a Changelog format, with the compare link at the bottom).
 3. CI (`.github/workflows/version-check.yml`) fails if these don't match or the version wasn't bumped.
-4. After pushing, tag the release: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+4. Tagging is automatic: `.github/workflows/release.yml` creates the `vX.Y.Z` tag and GitHub Release from the CHANGELOG section.
 
 ## Conventions
 - App name is "Posture". Do not use "DRS" anywhere.

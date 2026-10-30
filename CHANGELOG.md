@@ -19,6 +19,7 @@ and the app uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
 - Tapping a sound or pitch plays a preview. The choice is remembered on this device.
 - Version number in the page footer, linked to this changelog.
 - `CHANGELOG.md`, semantic versioning, and a CI check that fails when app files change without a version bump.
+- Each new version is tagged and published as a GitHub Release automatically, with notes from this changelog.
 
 ### Changed
 - Renamed the app from "Posture DRS" to "Posture". The installed app's name updates the next time the phone refreshes it.
