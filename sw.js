@@ -1,6 +1,6 @@
 // Cache name carries the app version. Keep in sync with APP_VERSION in app.js
 // and CHANGELOG.md (CI checks it). A new name makes phones download the new release.
-const VERSION = "posture-v2.0.0";
+const VERSION = "posture-v2.0.1";
 const SHELL = [
   "./",
   "./index.html",

@@ -11,6 +11,12 @@ and the app uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-11-03
+
+### Changed
+- Android: removed the explanation text under the Start button and the Changelog link. The footer shows only the version.
+- Release workflow ignores spaces and line breaks pasted into the signing secrets, and says which secret is wrong if signing fails.
+
 ## [2.0.0] - 2026-10-30
 
 ### Added
@@ -56,7 +62,8 @@ and the app uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
 - "Over music" mode (beeps over other audio) and "Screen off" mode (looping track that keeps going with the phone locked).
 - Installable app (PWA) with offline support and home-screen icons.
 
-[Unreleased]: https://github.com/van0101/posture/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/van0101/posture/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/van0101/posture/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/van0101/posture/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/van0101/posture/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/van0101/posture/compare/v1.0.0...v1.0.1

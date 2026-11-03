@@ -1,6 +1,6 @@
 // Single source of truth for the app version (semver). Keep in sync with
 // VERSION in sw.js and the top entry of CHANGELOG.md; CI checks this.
-const APP_VERSION = "2.0.0";
+const APP_VERSION = "2.0.1";
 
 (() => {
   const $ = (id) => document.getElementById(id);

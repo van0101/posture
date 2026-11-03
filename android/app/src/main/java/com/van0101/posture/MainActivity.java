@@ -5,7 +5,6 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
@@ -35,8 +34,6 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
-
-    private static final String CHANGELOG_URL = "https://github.com/van0101/posture/blob/main/CHANGELOG.md";
 
     private static final int[] TOTALS = {30, 45, 60, 90, 120};
     private static final String[] TOTAL_LABELS = {"30m", "45m", "1h", "1h 30", "2h"};
@@ -128,9 +125,6 @@ public class MainActivity extends Activity {
 
         TextView ver = findViewById(R.id.ver);
         ver.setText("v" + BuildConfig.VERSION_NAME);
-        TextView changelog = findViewById(R.id.changelog);
-        changelog.setPaintFlags(changelog.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG);
-        changelog.setOnClickListener(v -> startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(CHANGELOG_URL))));
     }
 
     @Override

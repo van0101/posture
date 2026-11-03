@@ -336,40 +336,14 @@
             android:visibility="gone" />
 
         <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:lineSpacingMultiplier="1.2"
-            android:text="Beeps keep coming with the app closed, the phone locked, or music playing. Music dips for the beep, then comes back. Stop from here or from the notification."
-            android:textColor="@color/mute"
-            android:textSize="13sp" />
-
-        <LinearLayout
+            android:id="@+id/ver"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="22dp"
+            android:fontFamily="monospace"
             android:gravity="center"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/ver"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="monospace"
-                android:text="v"
-                android:textColor="@color/mute"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/changelog"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="14dp"
-                android:fontFamily="monospace"
-                android:padding="6dp"
-                android:text="Changelog"
-                android:textColor="@color/mute"
-                android:textSize="12sp" />
-        </LinearLayout>
+            android:text="v"
+            android:textColor="@color/mute"
+            android:textSize="12sp" />
     </LinearLayout>
 </ScrollView>
